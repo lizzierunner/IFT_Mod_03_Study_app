@@ -308,6 +308,20 @@
   .feedback.show{display:block;}
   .feedback.good{background:var(--good-bg);color:var(--good);}
   .feedback.bad{background:var(--bad-bg);color:var(--bad);}
+  .match-row{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    border:2px solid var(--border);border-radius:8px;
+    padding:8px 12px;margin-bottom:8px;background:var(--surface);
+  }
+  .match-term{flex:0 0 auto;min-width:150px;font-weight:600;}
+  .match-select{
+    flex:1 1 200px;min-width:0;max-width:100%;
+    font-family:var(--font-body);font-size:0.88rem;
+    border:2px solid var(--border);border-radius:6px;
+    padding:6px 8px;background:var(--surface-2);color:var(--ink);
+  }
+  .match-row.correct{background:var(--good-bg);border-color:var(--good);}
+  .match-row.wrong{background:var(--bad-bg);border-color:var(--bad);}
 
   .nav-buttons{
     display:flex;justify-content:space-between;align-items:center;
@@ -625,7 +639,29 @@
     {q:"A category (union type) is drawn with which letter in the circle?", options:["C","U","X","S"], correct:1},
     {q:"OWNER inheriting from exactly one of PERSON, BANK, or COMPANY is different from specialization because:", options:["It only ever picks ONE superclass from a set of different superclasses, not multiple subclasses of the same one","It has no superclass at all","It is always total and disjoint","It cannot be shown in an EER diagram"], correct:0},
     {q:"ENGINEERING_MANAGER has two direct superclasses: MANAGER and ENGINEER. This structure is a:", options:["Hierarchy","Lattice","Category","Disjoint tree"], correct:1},
-    {q:"In UML notation, EER specialization/generalization is typically shown using:", options:["A hollow triangle arrow from subclass to superclass","A dashed circle","A double rhombus","A U-shaped connector"], correct:0}
+    {q:"In UML notation, EER specialization/generalization is typically shown using:", options:["A hollow triangle arrow from subclass to superclass","A dashed circle","A double rhombus","A U-shaped connector"], correct:0},
+    {q:"In an ER conceptual data model, a subclass is:", options:["A class that inherits some properties from another class","A subgroup of the entity instances that have similar attribute values","A special group of an entity representing a specialized case"], correct:2},
+    {type:"match", q:"Match each term with its definition:",
+      terms:["Superclass","Is-A Relationship","Specialization","Generalization","Category"],
+      defs:[
+        "A generic entity that has more specialized entities grouped under it",
+        "A special type of relationship that specifies that one entity is a group of another entity",
+        "The process of specifying a special case of an entity as a subclass of it",
+        "A set of superclasses that a subclass can inherit from exactly one of them",
+        "The process of specifying that multiple entities share common features and can be generalized into a superclass entity"
+      ],
+      correct:[0,1,2,4,3]},
+    {type:"match", q:"There are two constraints on specialization, namely Participation and Disjointness. Match each constraint to what it specifies:",
+      terms:["Participation","Disjointness"],
+      defs:[
+        "Whether all records of a superclass are a member of one subclass or there may be instances of the superclass that do not belong to any subclass",
+        "Whether each record from a superclass belongs to exactly one subclass or is it possible that it belongs to multiple subclasses"
+      ],
+      correct:[0,1]},
+    {type:"match", q:"Match each data abstraction concept to its corresponding modeling concept in EER diagrams:",
+      terms:["Entity","Relationship","Attribute","Specialization into subclasses"],
+      defs:["Rectangle","Rhombus","Oval","Circle"],
+      correct:[0,1,2,3]}
   ];
 
   var DIAGRAMS = {
@@ -1024,6 +1060,7 @@
     }
 
     var q = FINAL_QUIZ[finalRun.i];
+    if(q.type === 'match'){ renderMatchQuestion(q); return; }
     mainEl.innerHTML =
       '<div class="card">'+
         '<span class="case-tag">Question '+(finalRun.i+1)+' of '+FINAL_QUIZ.length+'</span>'+
@@ -1062,6 +1099,80 @@
     });
     document.getElementById('nextQ').addEventListener('click', function(){
       finalRun.i++; finalRun.answered = false; render();
+    });
+  }
+
+  function renderMatchQuestion(q){
+    mainEl.innerHTML =
+      '<div class="card">'+
+        '<span class="case-tag">Question '+(finalRun.i+1)+' of '+FINAL_QUIZ.length+'</span>'+
+        '<h2 class="case-title" style="font-size:1.1rem;">'+q.q+'</h2>'+
+        '<div id="matchWrap" style="margin-top:14px;"></div>'+
+        '<div class="feedback" id="feedback"></div>'+
+        '<div class="nav-buttons"><span></span><button class="btn primary" id="nextQ">Check answers</button><span></span></div>'+
+      '</div>';
+
+    var matchWrap = document.getElementById('matchWrap');
+    q.terms.forEach(function(term, ti){
+      var row = document.createElement('div');
+      row.className = 'match-row';
+      var label = document.createElement('span');
+      label.className = 'match-term';
+      label.textContent = term;
+      var select = document.createElement('select');
+      select.className = 'match-select';
+      select.setAttribute('data-idx', ti);
+      var blank = document.createElement('option');
+      blank.value = ''; blank.textContent = '— choose a definition —';
+      select.appendChild(blank);
+      q.defs.forEach(function(def, di){
+        var o = document.createElement('option');
+        o.value = di;
+        o.textContent = def;
+        select.appendChild(o);
+      });
+      row.appendChild(label);
+      row.appendChild(select);
+      matchWrap.appendChild(row);
+    });
+
+    var nextBtn = document.getElementById('nextQ');
+    nextBtn.addEventListener('click', function(){
+      if(!finalRun.answered){
+        var selects = matchWrap.querySelectorAll('.match-select');
+        var allChosen = true;
+        selects.forEach(function(s){ if(s.value==='') allChosen=false; });
+        var fb = document.getElementById('feedback');
+        if(!allChosen){
+          fb.className='feedback show bad'; fb.textContent='Please match every term before checking.';
+          return;
+        }
+        finalRun.answered = true;
+        var allCorrect = true;
+        selects.forEach(function(s){
+          var idx = parseInt(s.getAttribute('data-idx'),10);
+          var row = s.closest('.match-row');
+          s.setAttribute('disabled','');
+          if(parseInt(s.value,10) === q.correct[idx]){
+            row.classList.add('correct');
+          } else {
+            row.classList.add('wrong');
+            allCorrect = false;
+          }
+        });
+        if(allCorrect){
+          finalRun.score++;
+          fb.className='feedback show good'; fb.textContent='✅ All correct!';
+          soundCorrect();
+          showToast(randomEncourage());
+        } else {
+          fb.className='feedback show bad'; fb.textContent='❌ Some matches are off — check the highlighted rows.';
+          soundWrong();
+        }
+        nextBtn.textContent = 'Next question →';
+      } else {
+        finalRun.i++; finalRun.answered = false; render();
+      }
     });
   }
 
